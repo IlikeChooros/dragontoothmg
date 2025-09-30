@@ -59,10 +59,14 @@ func (t Termination) String() string {
 	}
 }
 
+// Internal structure to store history for undoing moves and detecting repetitions
 type History struct {
-	// fields captured by the original closure:
-	hash                                                                     uint64
-	currHash                                                                 uint64
+	// Stores the hash before making the move with Make() (so that Undo() can restore it)
+	hashBefore uint64
+	// Stores the hash after making the move with Make() (so that IsRepetition can work)
+	hashCurrent uint64
+
+	// fields captured by original closure, probably many are redundant
 	resetHalfmoveClockFrom                                                   int
 	oldRookLoc, newRookLoc                                                   uint8
 	flippedKsCastle, flippedQsCastle, flippedOppKsCastle, flippedOppQsCastle bool
@@ -75,6 +79,7 @@ type History struct {
 	destTypeBitboard, pieceTypeBitboard                                      *uint64
 }
 
+// Create a new board in the starting position.
 func NewBoard() *Board {
 	b := ParseFen(Startpos)
 	return &b
@@ -89,6 +94,7 @@ func (b *Board) Hash() uint64 {
 	return b.hash
 }
 
+// Returns true if the given move is legal in the current position.
 func (b *Board) IsLegal(m Move) bool {
 	return slices.Contains(b.GenerateLegalMoves(), m)
 }
@@ -119,7 +125,7 @@ func (b *Board) IsRepetition(nTimes int) bool {
 	count := 0
 	h := b.Hash()
 	for i := len(b.history) - 1; i >= b.irreversibleIdx && count < 3; i -= 2 {
-		if b.history[i].currHash == h {
+		if b.history[i].hashCurrent == h {
 			count++
 		}
 	}

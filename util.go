@@ -415,7 +415,7 @@ func ParseFen(fen string) Board {
 	b.hash = recomputeBoardHash(&b)
 
 	b.history = make([]History, 1, 32)
-	b.history[0].currHash = b.hash
+	b.history[0].hashCurrent = b.hash
 	b.irreversibleIdx = 0
 	b.termination = TerminationNone
 	return b
