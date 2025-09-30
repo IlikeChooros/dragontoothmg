@@ -8,8 +8,9 @@ import (
 	"runtime/pprof"
 	"testing"
 
-	"github.com/IlikeChooros/dragontoothmg"
-	//"time"
+	// Use this for optimized version
+	// "github.com/IlikeChooros/dragontoothmg"
+	"github.com/dylhunn/dragontoothmg"
 )
 
 const nsPerMs = 1000000
@@ -38,8 +39,8 @@ func main() {
 }
 
 func printResultLine(res testing.BenchmarkResult, name string, perftValue int64, depth int) {
-	fmt.Printf("%-22s depth %-3d %8dms %12d nodes  %11.0fnps\n", name+":", depth, res.NsPerOp()/nsPerMs,
-		perftValue, float64(perftValue)/(float64(res.NsPerOp())/nsPerS))
+	fmt.Printf("%-22s depth %-3d %8dms %12d nodes  %11.0fnps %8.2fMnps\n", name+":", depth, res.NsPerOp()/nsPerMs,
+		perftValue, float64(perftValue)/(float64(res.NsPerOp())/nsPerS), float64(perftValue)/(float64(res.NsPerOp())/1000.0))
 }
 
 // -----------------
