@@ -7,11 +7,11 @@ import (
 
 // Initialize the magic lookups tables
 func init() {
-	magicMovesRook = make([][]uint64, 64, 64)
-	magicMovesBishop = make([][]uint64, 64, 64)
+	magicMovesRook = make([][]uint64, 64)
+	magicMovesBishop = make([][]uint64, 64)
 	for i := 0; i < 64; i++ {
-		magicMovesRook[i] = make([]uint64, magicDbSizeRook[i], magicDbSizeRook[i])
-		magicMovesBishop[i] = make([]uint64, magicDbSizeBishop[i], magicDbSizeBishop[i])
+		magicMovesRook[i] = make([]uint64, magicDbSizeRook[i])
+		magicMovesBishop[i] = make([]uint64, magicDbSizeBishop[i])
 	}
 	generateRookMagicTable()
 	generateBishopMagicTable()
@@ -178,7 +178,7 @@ var pieceSquareZobristC [12][64]uint64
 var castleRightsZobristC [4]uint64
 var whiteToMoveZobristC uint64 // active if white is to move
 
-const kDefaultMoveListLength int = 65
+const kDefaultMoveListLength int = 35 // Average branching factor in chess is about 35
 
 // Bitboard where every bit is active
 var everything uint64 = ^(uint64(0))
@@ -189,8 +189,8 @@ var onlyFile = [8]uint64{
 	0x1010101010101010, 0x2020202020202020, 0x4040404040404040, 0x8080808080808080}
 
 var onlyRank = [8]uint64{
-	0xFF, 0XFF00, 0XFF0000, 0XFF000000,
-	0XFF00000000, 0XFF0000000000, 0XFF000000000000, 0XFF00000000000000}
+	0xFF, 0xFF00, 0xFF0000, 0xFF000000,
+	0xFF00000000, 0xFF0000000000, 0xFF000000000000, 0xFF00000000000000}
 
 // Masks for attacks
 // In order: knight on A1, B1, C1, ... F8, G8, H8

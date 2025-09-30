@@ -1,5 +1,9 @@
 package dragontoothmg
 
+import (
+	"slices"
+)
+
 // Each bitboard shall use little-endian rank-file mapping:
 // 56  57  58  59  60  61  62  63
 // 48  49  50  51  52  53  54  55
@@ -23,6 +27,57 @@ type Board struct {
 	White         Bitboards
 	Black         Bitboards
 	hash          uint64
+
+	// Added
+	history         []History
+	termination     Termination
+	irreversibleIdx int
+}
+
+type Termination uint16
+
+const (
+	TerminationNone                 = 0
+	TerminationCheckmate            = 1
+	TerminationStalemate            = 2
+	TerminationFiftyMovesRule       = 4
+	TerminationInsufficientMaterial = 8
+)
+
+func (t Termination) String() string {
+	switch t {
+	case TerminationCheckmate:
+		return "TerminationCheckmate"
+	case TerminationStalemate:
+		return "TerminationStalemate"
+	case TerminationFiftyMovesRule:
+		return "TerminationFiftyMovesRule"
+	case TerminationInsufficientMaterial:
+		return "TerminationInsufficientMaterial"
+	default:
+		return "TerminationNone"
+	}
+}
+
+type History struct {
+	// fields captured by the original closure:
+	hash                                                                     uint64
+	currHash                                                                 uint64
+	resetHalfmoveClockFrom                                                   int
+	oldRookLoc, newRookLoc                                                   uint8
+	flippedKsCastle, flippedQsCastle, flippedOppKsCastle, flippedOppQsCastle bool
+	capturedBitboard                                                         *uint64
+	actuallyPerformedEpCapture                                               bool
+	m                                                                        Move
+	oldEpCaptureSquare                                                       uint8
+	castleStatus                                                             int
+	capturedPieceType, pieceType, promotedToPieceType                        Piece
+	destTypeBitboard, pieceTypeBitboard                                      *uint64
+}
+
+func NewBoard() *Board {
+	b := ParseFen(Startpos)
+	return &b
 }
 
 // Return the Zobrist hash value for the board.
@@ -32,6 +87,86 @@ type Board struct {
 func (b *Board) Hash() uint64 {
 	//b.hash = recomputeBoardHash(b)
 	return b.hash
+}
+
+func (b *Board) IsLegal(m Move) bool {
+	return slices.Contains(b.GenerateLegalMoves(), m)
+}
+
+// Returns pre-calculated termination reason, use 'IsTerminated' to
+// calculate it
+func (b *Board) Termination() Termination {
+	return b.termination
+}
+
+func (b *Board) IsTerminated(moveCount int) bool {
+	if b.Halfmoveclock >= 100 {
+		b.termination = TerminationFiftyMovesRule
+	}
+
+	if moveCount == 0 {
+		if b.OurKingInCheck() {
+			b.termination = TerminationCheckmate
+		} else {
+			b.termination = TerminationStalemate
+		}
+	}
+
+	return b.termination != TerminationNone || b.IsRepetition(3) || b.IsInsufficientMaterial()
+}
+
+func (b *Board) IsRepetition(nTimes int) bool {
+	count := 0
+	h := b.Hash()
+	for i := len(b.history) - 1; i >= b.irreversibleIdx && count < 3; i -= 2 {
+		if b.history[i].currHash == h {
+			count++
+		}
+	}
+
+	return count == nTimes
+}
+
+func oneOrLess(b, k uint64) bool {
+	return k == 0 || ((k & (k - 1)) == 0) || b == 0 || ((b & (b - 1)) == 0)
+}
+
+func (b *Board) IsInsufficientMaterial() bool {
+
+	// If there are still rooks, queens or pawns on the board, the
+	// game isn't terminated yet
+	if (b.White.Queens|b.White.Rooks|b.White.Pawns) != 0 ||
+		(b.Black.Queens|b.Black.Rooks|b.Black.Pawns) != 0 {
+		return false
+	}
+
+	// If there is only 1 or less knight and 1 or less bishop, game is a draw
+	if oneOrLess(b.White.Bishops, b.White.Knights) || oneOrLess(b.Black.Bishops, b.Black.Knights) {
+		b.termination = TerminationInsufficientMaterial
+		return true
+	}
+
+	return false
+}
+
+func (b Board) Clone() *Board {
+	history := make([]History, len(b.history))
+	copy(history, b.history)
+	return &Board{
+		Wtomove:       b.Wtomove,
+		enpassant:     b.enpassant,
+		castlerights:  b.castlerights,
+		Halfmoveclock: b.Halfmoveclock,
+		Fullmoveno:    b.Fullmoveno,
+		White:         b.White,
+		Black:         b.Black,
+		hash:          b.hash,
+
+		// Added
+		history:         history,
+		termination:     b.termination,
+		irreversibleIdx: b.irreversibleIdx,
+	}
 }
 
 // Castle rights helpers. Data stored inside, from LSB:

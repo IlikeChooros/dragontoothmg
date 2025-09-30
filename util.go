@@ -179,12 +179,57 @@ func AlgebraicToIndex(alg string) (uint8, error) {
 
 // Accepts a Dragontooth Square ID, and converts it to an algebraic square.
 func IndexToAlgebraic(id Square) string {
-	if id < 0 || id > 63 {
+	if id > 63 {
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
 		log.Fatal("Could not parse index: ", id)
 	}
 	rune := rune((uint8(id) % 8) + 'a')
 	return fmt.Sprintf("%c", rune) + strconv.Itoa((int(id)/8)+1)
+}
+
+func ParseMoves(str string) ([]Move, error) {
+	strsplit := strings.Split(str, " ")
+	mvs := make([]Move, len(strsplit))
+	var e error
+	for i := range strsplit {
+		mvs[i], e = ParseMove(strsplit[i])
+		if e != nil {
+			break
+		}
+	}
+	return mvs, e
+}
+
+func _FromFen(fen string) (*Board, bool) {
+	board := ParseFen(fen)
+	return &board, board.ToFen() == fen
+}
+
+func FromFen(fen string) (*Board, bool) {
+	// If fen contains 'moves' parse them properly
+	if bareFen, strmoves, ok := strings.Cut(fen, " moves "); ok && strmoves != "" {
+		mvs, err := ParseMoves(strmoves)
+
+		if err != nil {
+			return nil, false
+		}
+
+		b, ok := _FromFen(bareFen)
+		if !ok {
+			return nil, false
+		}
+
+		for i := range mvs {
+			if !b.IsLegal(mvs[i]) {
+				break
+			}
+			b.Make(mvs[i])
+		}
+
+		return b, true
+	} else {
+		return _FromFen(fen)
+	}
 }
 
 // Serializes a board position to a Fen string.
@@ -368,5 +413,10 @@ func ParseFen(fen string) Board {
 		b.Fullmoveno = uint16(result)
 	}
 	b.hash = recomputeBoardHash(&b)
+
+	b.history = make([]History, 1, 32)
+	b.history[0].currHash = b.hash
+	b.irreversibleIdx = 0
+	b.termination = TerminationNone
 	return b
 }

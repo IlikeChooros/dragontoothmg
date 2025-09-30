@@ -14,9 +14,9 @@ func Perft(b *Board, n int) int64 {
 	}
 	var count int64 = 0
 	for _, move := range moves {
-		unapply := b.Apply(move)
+		b.Make(move)
 		count += Perft(b, n-1)
-		unapply()
+		b.Undo()
 	}
 	return int64(count)
 }
@@ -25,9 +25,9 @@ func Perft(b *Board, n int) int64 {
 func Divide(b *Board, n int) {
 	moves := b.GenerateLegalMoves()
 	for _, move := range moves {
-		unapply := b.Apply(move)
+		b.Make(move)
 		result := Perft(b, n-1)
-		unapply()
+		b.Undo()
 		fmt.Printf( /*"Move   #%3d:   "*/ "%-6s =%9d\n" /*i+1, */, &move, result)
 	}
 }
