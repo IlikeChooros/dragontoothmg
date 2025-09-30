@@ -8,8 +8,6 @@ import (
 	"runtime/pprof"
 	"testing"
 
-	// Use this for optimized version
-	// "github.com/IlikeChooros/dragontoothmg"
 	"github.com/dylhunn/dragontoothmg"
 )
 
