@@ -105,6 +105,16 @@ func (b *Board) Termination() Termination {
 	return b.termination
 }
 
+// Calculates whether the game is terminated by any of the rules:
+// - Checkmate
+// - Stalemate
+// - Fifty-move rule
+// - Threefold repetition
+// - Insufficient material
+//
+// The parameter 'moveCount' is the number of legal moves in the current position,
+// which can be obtained by calling 'GenerateLegalMoves()' and taking the length of the result.
+// To get a more verbose termination reason, call 'Termination()' after this function.
 func (b *Board) IsTerminated(moveCount int) bool {
 	if b.Halfmoveclock >= 100 {
 		b.termination = TerminationFiftyMovesRule
