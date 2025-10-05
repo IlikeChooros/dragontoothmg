@@ -173,6 +173,18 @@ func (b *Board) generatePinnedMoves(moveList *[]Move, allowDest uint64) uint64 {
 					}
 				}
 			}
+
+			// Fix for en-passant captures by pinned pawns
+			// https://github.com/dylhunn/dragontoothmg/pull/6
+			if b.enpassant > 0 && bishopTargets&(1<<b.enpassant) != 0 {
+				if (b.Wtomove && ((pinnedPieceIdx+9) == b.enpassant) || ((pinnedPieceIdx + 7) == b.enpassant)) ||
+					(!b.Wtomove && ((pinnedPieceIdx-9) == b.enpassant) || ((pinnedPieceIdx - 7) == b.enpassant)) {
+					var move Move
+					move.Setfrom(Square(pinnedPieceIdx)).Setto(Square(b.enpassant))
+					*moveList = append(*moveList, move)
+				}
+			}
+
 			continue
 		}
 		// If it's not a bishop or queen, it can't move

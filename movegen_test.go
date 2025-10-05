@@ -527,12 +527,19 @@ func TestLegalMoves(t *testing.T) {
 		"8/Pk6/8/8/8/8/6Kp/8 b - - 0 1":                                        11,
 		"n1n5/1Pk5/8/8/8/8/5Kp1/5N1N b - - 0 1":                                24,
 		"8/PPPk4/8/8/8/8/4Kppp/8 b - - 0 1":                                    18,
-		"n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1":                              24}
+		"n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1":                              24,
+		"rn1qk1nr/pb1pb1pp/p7/2pPpP2/8/6P1/PPP2PKP/RNBQ2NR w kq c6 0 9":        36, // pinned pawn ep capture
+		"5r2/8/5kp1/2p2p1p/1pPp1K2/pP1P4/P7/B7 b - c3 0 45":                    16, // pinned pawn ep capture
+		"1nbqkbnr/pp1ppppp/8/rPp2K2/8/8/PP1PPPPP/RNBQ1BNR w - c6 0 1":          28, // pinned pawn ep capture
+	}
 	for k, v := range positions {
 		b := ParseFen(k)
 		fenbefore := b.ToFen()
 		moves := b.GenerateLegalMoves()
 		fenafter := b.ToFen()
+		if fenbefore != k {
+			t.Fatalf("FEN parsing/serialization failed. Expected %q but got %q", k, fenbefore)
+		}
 		if fenbefore != fenafter {
 			t.Error("Move generation corrupted board state. Before:\n", fenbefore, "\nAfter:\n", fenafter)
 		}
