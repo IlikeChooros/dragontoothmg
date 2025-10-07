@@ -13,9 +13,38 @@ import (
 
 // The main API entrypoint. Generates all legal moves for a given board.
 func (b *Board) GenerateLegalMoves() []Move {
-	moves := make([]Move, 0, kDefaultMoveListLength)
-	// First, see if we are currently in check. If we are, invoke a special check-
-	// evasion move generator.
+	return b.GenerateMovesForPiece(Nothing)
+}
+
+// Returns the expected move list length for a given piece type.
+// Used in move generation to preallocate a slice of the right size.
+func (b *Board) getMoveListLength(piece Piece) int {
+	if piece == Nothing {
+		return kDefaultMoveListLength
+	}
+
+	switch piece {
+	case Pawn:
+		return 16
+	case Knight:
+		return 16
+	case Bishop:
+		return 26
+	case Rook:
+		return 28
+	case Queen:
+		return 27
+	case King:
+		return 9
+	default:
+		return kDefaultMoveListLength
+	}
+}
+
+// Generates moves for given piece type
+func (b *Board) GenerateMovesForPiece(piece Piece) []Move {
+	moves := make([]Move, 0, b.getMoveListLength(piece))
+
 	var kingLocation uint8
 	var ourPiecesPtr *Bitboards
 	if b.Wtomove { // assumes only one king
@@ -25,41 +54,79 @@ func (b *Board) GenerateLegalMoves() []Move {
 		kingLocation = uint8(bits.TrailingZeros64(b.Black.Kings))
 		ourPiecesPtr = &(b.Black)
 	}
-	kingAttackers, blockerDestinations := b.countAttacks(b.Wtomove, kingLocation, 2)
-	if kingAttackers >= 2 { // Under multiple attack, we must move the king.
-		b.kingPushes(&moves, ourPiecesPtr)
+
+	// If in check, only king moves are possible
+	kingAttackers, blockDest := b.countAttacks(b.Wtomove, kingLocation, 2)
+	if kingAttackers >= 2 {
+		if piece == Nothing || piece == King {
+			b.kingPushes(&moves, ourPiecesPtr)
+		}
 		return moves
 	}
 
-	// Several move types can work in single check, but we must block the check
 	if kingAttackers == 1 {
-		// calculate pinned pieces
-		pinnedPieces := b.generatePinnedMoves(&moves, blockerDestinations)
+		pinnedPieces := b.generatePinnedMoves(&moves, blockDest)
 		nonpinnedPieces := ^pinnedPieces
-		// TODO
-		b.pawnPushes(&moves, nonpinnedPieces, blockerDestinations)
-		b.pawnCaptures(&moves, nonpinnedPieces, blockerDestinations)
-		b.knightMoves(&moves, nonpinnedPieces, blockerDestinations)
-		b.rookMoves(&moves, nonpinnedPieces, blockerDestinations)
-		b.bishopMoves(&moves, nonpinnedPieces, blockerDestinations)
-		b.queenMoves(&moves, nonpinnedPieces, blockerDestinations)
-		b.kingPushes(&moves, ourPiecesPtr)
+
+		if piece != Nothing {
+			switch piece {
+			case Pawn:
+				b.pawnPushes(&moves, nonpinnedPieces, blockDest)
+				b.pawnCaptures(&moves, nonpinnedPieces, blockDest)
+			case Knight:
+				b.knightMoves(&moves, nonpinnedPieces, blockDest)
+			case Rook:
+				b.rookMoves(&moves, nonpinnedPieces, blockDest)
+			case Bishop:
+				b.bishopMoves(&moves, nonpinnedPieces, blockDest)
+			case Queen:
+				b.queenMoves(&moves, nonpinnedPieces, blockDest)
+			case King:
+				b.kingPushes(&moves, ourPiecesPtr)
+			}
+		} else {
+			b.pawnPushes(&moves, nonpinnedPieces, blockDest)
+			b.pawnCaptures(&moves, nonpinnedPieces, blockDest)
+			b.knightMoves(&moves, nonpinnedPieces, blockDest)
+			b.rookMoves(&moves, nonpinnedPieces, blockDest)
+			b.bishopMoves(&moves, nonpinnedPieces, blockDest)
+			b.queenMoves(&moves, nonpinnedPieces, blockDest)
+			b.kingPushes(&moves, ourPiecesPtr)
+		}
+
 		return moves
 	}
 
-	// Then, calculate all the absolutely pinned pieces, and compute their moves.
-	// If we are in check, we can only move to squares that block the check.
 	pinnedPieces := b.generatePinnedMoves(&moves, everything)
 	nonpinnedPieces := ^pinnedPieces
 
-	// Finally, compute ordinary moves, ignoring absolutely pinned pieces on the board.
-	b.pawnPushes(&moves, nonpinnedPieces, everything)
-	b.pawnCaptures(&moves, nonpinnedPieces, everything)
-	b.knightMoves(&moves, nonpinnedPieces, everything)
-	b.rookMoves(&moves, nonpinnedPieces, everything)
-	b.bishopMoves(&moves, nonpinnedPieces, everything)
-	b.queenMoves(&moves, nonpinnedPieces, everything)
-	b.kingMoves(&moves)
+	if piece != Nothing {
+		switch piece {
+		case Pawn:
+			b.pawnPushes(&moves, nonpinnedPieces, everything)
+			b.pawnCaptures(&moves, nonpinnedPieces, everything)
+		case Knight:
+			b.knightMoves(&moves, nonpinnedPieces, everything)
+		case Rook:
+			b.rookMoves(&moves, nonpinnedPieces, everything)
+		case Bishop:
+			b.bishopMoves(&moves, nonpinnedPieces, everything)
+		case Queen:
+			b.queenMoves(&moves, nonpinnedPieces, everything)
+		case King:
+			b.kingMoves(&moves)
+		}
+	} else {
+		// Finally, compute ordinary moves, ignoring absolutely pinned pieces on the board.
+		b.pawnPushes(&moves, nonpinnedPieces, everything)
+		b.pawnCaptures(&moves, nonpinnedPieces, everything)
+		b.knightMoves(&moves, nonpinnedPieces, everything)
+		b.rookMoves(&moves, nonpinnedPieces, everything)
+		b.bishopMoves(&moves, nonpinnedPieces, everything)
+		b.queenMoves(&moves, nonpinnedPieces, everything)
+		b.kingMoves(&moves)
+	}
+
 	return moves
 }
 
@@ -545,6 +612,14 @@ func (b *Board) OurKingInCheck() bool {
 func (b *Board) UnderDirectAttack(byBlack bool, origin uint8) bool {
 	count, _ := b.countAttacks(byBlack, origin, 1)
 	return count >= 1
+}
+
+// Compute whether an individual square is under direct attack. Potentially expensive.
+// Can be asked to abort early, when a certain number of attacks are found.
+// The found number might exceed the abortion threshold, since attacks are grouped.
+// Also returns the mask of attackers.
+func (b *Board) UnderDirectAttackMulti(byBlack bool, origin uint8, abortEarly int) (int, uint64) {
+	return b.countAttacks(byBlack, origin, abortEarly)
 }
 
 // Compute whether an individual square is under direct attack. Potentially expensive.

@@ -8,11 +8,12 @@ func TestTerminations(t *testing.T) {
 		"4k3/4P3/4K3/8/8/8/8/8 b - - 0 1",
 		"7k/ppp5/8/8/8/8/7K/8 w - - 100 1",
 
-		"4k3/8/8/5KB1/8/8/8/8 w - - 0 1",
-		"4k3/8/8/5K2/8/8/8/8 w - - 0 1",
-		"4k3/8/8/5KN1/8/8/8/8 w - - 0 1",
-		"4kn2/8/8/5KB1/8/8/8/8 w - - 0 1",
-		"4kb2/8/8/5KB1/8/8/8/8 w - - 0 1",
+		"4k3/8/8/5K2/8/8/8/8 w - - 0 1",   // k vs K
+		"4k3/8/8/5KB1/8/8/8/8 w - - 0 1",  // k vs KB
+		"4kb2/8/8/5K2/8/8/8/8 w - - 0 1",  // kb vs K
+		"4k3/8/8/5KN1/8/8/8/8 w - - 0 1",  // k vs KN
+		"4kn2/8/8/5K2/8/8/8/8 w - - 0 1",  // kn vs K
+		"4kb2/8/8/5KB1/8/8/8/8 w - - 0 1", // kb vs KB same color
 	}
 
 	terminations := []Termination{
@@ -20,6 +21,7 @@ func TestTerminations(t *testing.T) {
 		TerminationStalemate,
 		TerminationFiftyMovesRule,
 
+		TerminationInsufficientMaterial,
 		TerminationInsufficientMaterial,
 		TerminationInsufficientMaterial,
 		TerminationInsufficientMaterial,
@@ -37,7 +39,7 @@ func TestTerminations(t *testing.T) {
 
 		moves := b.GenerateLegalMoves()
 		if !b.IsTerminated(len(moves)) || b.Termination() != terminations[i] {
-			t.Errorf("Invalid termination reason %v, want %v", b.Termination(), terminations[i])
+			t.Errorf("Invalid termination reason %v, want %v (fen: %s)", b.Termination(), terminations[i], fens[i])
 		}
 	}
 }

@@ -1,7 +1,9 @@
 package dragontoothmg
 
 import (
+	"math/bits"
 	"slices"
+	"strings"
 )
 
 // Each bitboard shall use little-endian rank-file mapping:
@@ -45,18 +47,27 @@ const (
 )
 
 func (t Termination) String() string {
-	switch t {
-	case TerminationCheckmate:
-		return "TerminationCheckmate"
-	case TerminationStalemate:
-		return "TerminationStalemate"
-	case TerminationFiftyMovesRule:
-		return "TerminationFiftyMovesRule"
-	case TerminationInsufficientMaterial:
-		return "TerminationInsufficientMaterial"
-	default:
+
+	if t == TerminationNone {
 		return "TerminationNone"
 	}
+
+	termination := strings.Builder{}
+	if t&TerminationCheckmate != 0 {
+		termination.WriteString("TerminationCheckmate|")
+	}
+	if t&TerminationStalemate != 0 {
+		termination.WriteString("TerminationStalemate|")
+	}
+	if t&TerminationFiftyMovesRule != 0 {
+		termination.WriteString("TerminationFiftyMovesRule|")
+	}
+	if t&TerminationInsufficientMaterial != 0 {
+		termination.WriteString("TerminationInsufficientMaterial|")
+	}
+
+	s := termination.String()
+	return s[:len(s)-1]
 }
 
 // Internal structure to store history for undoing moves and detecting repetitions
@@ -66,7 +77,7 @@ type History struct {
 	// Stores the hash after making the move with Make() (so that IsRepetition can work)
 	hashCurrent uint64
 
-	// fields captured by original closure, probably many are redundant
+	// fields captured by original closure, many are probably redundant
 	resetHalfmoveClockFrom                                                   int
 	oldRookLoc, newRookLoc                                                   uint8
 	flippedKsCastle, flippedQsCastle, flippedOppKsCastle, flippedOppQsCastle bool
@@ -106,10 +117,15 @@ func (b *Board) Termination() Termination {
 }
 
 // Calculates whether the game is terminated by any of the rules:
+//
 // - Checkmate
+//
 // - Stalemate
+//
 // - Fifty-move rule
+//
 // - Threefold repetition
+//
 // - Insufficient material
 //
 // The parameter 'moveCount' is the number of legal moves in the current position,
@@ -117,20 +133,21 @@ func (b *Board) Termination() Termination {
 // To get a more verbose termination reason, call 'Termination()' after this function.
 func (b *Board) IsTerminated(moveCount int) bool {
 	if b.Halfmoveclock >= 100 {
-		b.termination = TerminationFiftyMovesRule
+		b.termination |= TerminationFiftyMovesRule
 	}
 
 	if moveCount == 0 {
 		if b.OurKingInCheck() {
-			b.termination = TerminationCheckmate
+			b.termination |= TerminationCheckmate
 		} else {
-			b.termination = TerminationStalemate
+			b.termination |= TerminationStalemate
 		}
 	}
 
 	return b.termination != TerminationNone || b.IsRepetition(3) || b.IsInsufficientMaterial()
 }
 
+// Returns true if the current position has occurred 'nTimes' times (or more) in the game history
 func (b *Board) IsRepetition(nTimes int) bool {
 	count := 0
 	h := b.Hash()
@@ -140,13 +157,16 @@ func (b *Board) IsRepetition(nTimes int) bool {
 		}
 	}
 
-	return count == nTimes
+	if count >= nTimes {
+		b.termination |= TerminationFiftyMovesRule
+		return true
+	}
+
+	return false
 }
 
-func oneOrLess(b, k uint64) bool {
-	return k == 0 || ((k & (k - 1)) == 0) || b == 0 || ((b & (b - 1)) == 0)
-}
-
+// Source https://www.chessprogramming.org/Material#InsufficientMaterial
+// According to FIDE: KB vs K is a draw, as is KN vs K and KNN vs K
 func (b *Board) IsInsufficientMaterial() bool {
 
 	// If there are still rooks, queens or pawns on the board, the
@@ -156,15 +176,47 @@ func (b *Board) IsInsufficientMaterial() bool {
 		return false
 	}
 
-	// If there is only 1 or less knight and 1 or less bishop, game is a draw
-	if oneOrLess(b.White.Bishops, b.White.Knights) || oneOrLess(b.Black.Bishops, b.Black.Knights) {
-		b.termination = TerminationInsufficientMaterial
+	// King vs king
+	if b.White.All == b.White.Kings && b.Black.All == b.Black.Kings {
+		b.termination |= TerminationInsufficientMaterial
 		return true
+	}
+
+	// King and bishop vs king
+	if (b.White.All == (b.White.Kings|b.White.Bishops) && b.Black.All == b.Black.Kings) ||
+		(b.Black.All == (b.Black.Kings|b.Black.Bishops) && b.White.All == b.White.Kings) {
+		b.termination |= TerminationInsufficientMaterial
+		return true
+	}
+
+	// King and knight vs king
+	if (b.White.All == (b.White.Kings|b.White.Knights) && b.Black.All == b.Black.Kings) ||
+		(b.Black.All == (b.Black.Kings|b.Black.Knights) && b.White.All == b.White.Kings) {
+		b.termination |= TerminationInsufficientMaterial
+		return true
+	}
+
+	// Only 1 bishop each, and they are on the same color
+	if b.White.Bishops != 0 && b.Black.Bishops != 0 &&
+		(b.White.Bishops&(b.White.Bishops-1)) == 0 && // only 1 bishop
+		(b.Black.Bishops&(b.Black.Bishops-1)) == 0 &&
+		((b.White.All == (b.White.Kings | b.White.Bishops)) &&
+			(b.Black.All == (b.Black.Kings | b.Black.Bishops))) {
+		// Get the coordinates of the bishops
+		wBishopSquare := Square(bits.TrailingZeros64(b.White.Bishops))
+		bBishopSquare := Square(bits.TrailingZeros64(b.Black.Bishops))
+
+		// Check if they are on the same color
+		if (wBishopSquare.Rank()+wBishopSquare.File())%2 == (bBishopSquare.Rank()+bBishopSquare.File())%2 {
+			b.termination |= TerminationInsufficientMaterial
+			return true
+		}
 	}
 
 	return false
 }
 
+// Returns a deep copy of the board, including its history.
 func (b Board) Clone() *Board {
 	history := make([]History, len(b.history))
 	copy(history, b.history)
@@ -344,6 +396,16 @@ func (m *Move) String() string {
 
 // Square index values from 0-63.
 type Square uint8
+
+// Returns the rank (0-7) of the square.
+func (s Square) Rank() uint8 {
+	return uint8(s >> 3)
+}
+
+// Returns the file (0-7) of the square.
+func (s Square) File() uint8 {
+	return uint8(s & 7)
+}
 
 // Piece types; valid in range 0-6, as indicated by the constants for each piece.
 type Piece uint8

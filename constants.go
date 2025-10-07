@@ -181,7 +181,7 @@ var whiteToMoveZobristC uint64 // active if white is to move
 const kDefaultMoveListLength int = 35 // Average branching factor in chess is about 35
 
 // Bitboard where every bit is active
-var everything uint64 = ^(uint64(0))
+const everything uint64 = ^(uint64(0))
 
 // Only activate one file, A-H (A=0, H=7)
 var onlyFile = [8]uint64{

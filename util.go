@@ -187,6 +187,8 @@ func IndexToAlgebraic(id Square) string {
 	return fmt.Sprintf("%c", rune) + strconv.Itoa((int(id)/8)+1)
 }
 
+// Parses a string of space-separated moves, returning a slice of Move objects.
+// Example input: "e2e4 e7e5 g1f3"
 func ParseMoves(str string) ([]Move, error) {
 	strsplit := strings.Split(str, " ")
 	mvs := make([]Move, len(strsplit))
@@ -205,6 +207,9 @@ func _FromFen(fen string) (*Board, bool) {
 	return &board, board.ToFen() == fen
 }
 
+// An extended version of FromFen that can also parse moves after the fen string
+// Example input: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 moves e2e4 e7e5 g1f3"
+// Returns (*Board, true) on success, (nil, false) on failure
 func FromFen(fen string) (*Board, bool) {
 	// If fen contains 'moves' parse them properly
 	if bareFen, strmoves, ok := strings.Cut(fen, " moves "); ok && strmoves != "" {
