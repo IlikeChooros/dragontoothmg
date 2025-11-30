@@ -207,8 +207,12 @@ func _FromFen(fen string) (*Board, bool) {
 	return &board, board.ToFen() == fen
 }
 
-// An extended version of FromFen that can also parse moves after the fen string
-// Example input: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 moves e2e4 e7e5 g1f3"
+// An extended version of ParseFen that can also parse moves after the fen string
+//
+// Example input:
+//
+// "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 moves e2e4 e7e5 g1f3"
+//
 // Returns (*Board, true) on success, (nil, false) on failure
 func FromFen(fen string) (*Board, bool) {
 	// If fen contains 'moves' parse them properly

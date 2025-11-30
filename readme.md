@@ -1,16 +1,27 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
-[![Build Status](https://travis-ci.org/dylhunn/dragontoothmg.svg?branch=master)](https://travis-ci.org/dylhunn/dragontoothmg)
-[![Documentation](https://img.shields.io/badge/Documentation-GoDoc-green.svg)](https://godoc.org/github.com/dylhunn/dragontoothmg)
+[![Documentation](https://img.shields.io/badge/Documentation-GoDoc-green.svg)](https://godoc.org/github.com/IlikeChooros/dragontoothmg)
 
 
-Dragontooth Movegen | Dylan D. Hunn
-==================================
+Dragontooth Movegen (Maintained Fork)
+=====================================
 
-Dragontooth Movegen is a fast, no-compromises chess move generator written entirely in Go. It provides a simple API for `GenerateLegalMoves()`. It also provides `Board` and `Move` types, `Apply()` and `Unapply()` functionality, and easy-to-use Zobrist-backed `hash`ing of board positions. FEN parsing/serializing and Move parsing/serializing are supported out of the box.
+> **Note:** This is a fork of the original [dragontoothmg](https://github.com/dylhunn/dragontoothmg) repository by Dylan D. Hunn. The original repository appears to be abandoned. This fork serves to maintain the project and add requested features.
+
+Dragontooth Movegen is a fast, no-compromises chess move generator written entirely in Go. It provides a simple API for `GenerateLegalMoves()`. It also provides `Board` and `Move` types, `Make()` and `Undo()` functionality, and easy-to-use Zobrist-backed hashing of board positions. FEN parsing/serializing and Move parsing/serializing are supported out of the box.
 
 `Dragontoothmg` is based on *magic bitboards* for maximum performance, and generates legal moves only using *pinned piece tables*.
 
 **This project is currently stable and fully functional.** Optimizations are underway, to improve on the benchmarks listed below.
+
+New Features in this Fork
+=========================
+
+*   Introduced `Make()` and `Undo()` functions for efficient move making/unmaking with internal history state.
+`Apply()` still exists for compatibility, but `Make()` is recommended for performance.
+*   Added `IsRepetition(nTime int)` function to check for position repetitions.
+*   Added `IsTerminated(moveCount int) bool` function to check for game termination conditions.
+*   Introduced `Termination` type to represent various termination states (Checkmate, Stalemate, etc.).
+*   Set `kDefaultMoveListLength` to 35, reflecting the average branch factor in chess.
 
 Repo summary
 ============
@@ -83,18 +94,20 @@ You can find the documentation [here](https://godoc.org/github.com/dylhunn/drago
 
 Here is a simple example invocation:
 
-    // Read a position from a FEN string
-    board := dragontoothmg.ParseFen("1Q2rk2/2p2p2/1n4b1/N7/2B1Pp1q/2B4P/1QPP4/4K2R b K e3 4 30")
-    // Generate all legal moves
-    moveList := board.GenerateLegalMoves()
-    // For every legal move
-    for _, currMove := range moveList {
-        // Apply it to the board
-        unapplyFunc := board.Apply(currMove)
-        // Print the move, the new position, and the hash of the new position
-        fmt.Println("Moved to:", &currMove) // Reference converts Move to string automatically
-        fmt.Println("New position is:", b.ToFen())
-        fmt.Println("This new position has Zobrist hash:", board.Hash())
-        // Unapply the move
-        unapplyFunc()
-    }
+```go
+// Read a position from a FEN string
+board := dragontoothmg.ParseFen("1Q2rk2/2p2p2/1n4b1/N7/2B1Pp1q/2B4P/1QPP4/4K2R b K e3 4 30")
+// Generate all legal moves
+moveList := board.GenerateLegalMoves()
+// For every legal move
+for _, currMove := range moveList {
+    // Apply it to the board
+    board.Make(currMove)
+    // Print the move, the new position, and the hash of the new position
+    fmt.Println("Moved to:", &currMove) // Reference converts Move to string automatically
+    fmt.Println("New position is:", board.ToFen())
+    fmt.Println("This new position has Zobrist hash:", board.Hash())
+    // Unapply the move
+    board.Undo()
+}
+```

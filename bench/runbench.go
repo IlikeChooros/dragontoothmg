@@ -8,7 +8,7 @@ import (
 	"runtime/pprof"
 	"testing"
 
-	"github.com/dylhunn/dragontoothmg"
+	"github.com/IlikeChooros/dragontoothmg"
 )
 
 const nsPerMs = 1000000
