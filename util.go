@@ -229,6 +229,7 @@ func FromFen(fen string) (*Board, bool) {
 		}
 
 		for i := range mvs {
+			// Maybe it should fail here, instead of silently stopping
 			if !b.IsLegal(mvs[i]) {
 				break
 			}

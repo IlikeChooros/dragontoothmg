@@ -297,6 +297,40 @@ func (b *Board) Undo() {
 	b.history = b.history[:len(b.history)-1]
 }
 
+// Make null move - pass the turn to the opponent side, must be undone with UndoNullMove(),
+// it is allowed to make consecutive null moves
+func (b *Board) MakeNullMove() {
+	hashBefore := b.hash
+
+	// If this position has an enpassant square, remove it
+	b.hash ^= uint64(b.enpassant)
+	oldEpCaptureSquare := b.enpassant
+	b.enpassant = 0
+
+	// Flip the sides
+	b.Wtomove = !b.Wtomove
+	b.hash ^= whiteToMoveZobristC
+
+	b.history = append(b.history,
+		History{hashBefore: hashBefore, oldEpCaptureSquare: oldEpCaptureSquare})
+}
+
+func (b *Board) UndoNullMove() {
+	if len(b.history) == 0 {
+		return
+	}
+
+	u := &b.history[len(b.history)-1]
+
+	// Restore previous state
+	b.Wtomove = !b.Wtomove
+	b.enpassant = u.oldEpCaptureSquare
+	b.hash = u.hashBefore
+
+	// Slice the history
+	b.history = b.history[:len(b.history)-1]
+}
+
 func determinePieceType(ourBitboardPtr *Bitboards, squareMask uint64) (Piece, *uint64) {
 	var pieceType Piece = Nothing
 	pieceTypeBitboard := &(ourBitboardPtr.All)

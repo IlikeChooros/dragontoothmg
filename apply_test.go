@@ -15,6 +15,27 @@ func TestHashEpApplication(t *testing.T) {
 	}
 }
 
+func TestMakeUnmakeNullMove(t *testing.T) {
+	positions := []string{
+		Startpos,
+		"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0",
+		"r3k3/p1ppqpb1/bn2pnpr/3PN3/1p2P3/5Q1p/PPPBBPPP/RN2K2R w KQq - 0 0",
+		"r3k2r/Pppp1ppp/1b3nbN/nPB5/B1P1P3/q4N2/P2P2PP/r2Q1RK1 w kq - 0 0",
+		"rnbqkbnr/ppp1pppp/8/3p4/8/8/PPP1PPPP/RNBQKBNR w KQkq d6 0 2",
+	}
+
+	for _, fen := range positions {
+		b := ParseFen(fen)
+		oldHash := b.Hash()
+		b.MakeNullMove()
+		b.UndoNullMove()
+		newHash := b.Hash()
+		if oldHash != newHash {
+			t.Error("Null move/unmove changed board hash for:\n", fen)
+		}
+	}
+}
+
 func TestApplyUnapply(t *testing.T) {
 	movesMap := map[string]Move{
 		// ordinary move

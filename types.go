@@ -44,6 +44,7 @@ const (
 	TerminationStalemate            = 2
 	TerminationFiftyMovesRule       = 4
 	TerminationInsufficientMaterial = 8
+	TerminationRepetition           = 16
 )
 
 func (t Termination) String() string {
@@ -158,7 +159,7 @@ func (b *Board) IsRepetition(nTimes int) bool {
 	}
 
 	if count >= nTimes {
-		b.termination |= TerminationFiftyMovesRule
+		b.termination |= TerminationRepetition
 		return true
 	}
 
