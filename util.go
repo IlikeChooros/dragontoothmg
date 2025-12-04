@@ -13,22 +13,22 @@ func recomputeBoardHash(b *Board) uint64 {
 	if b.Wtomove {
 		hash ^= whiteToMoveZobristC
 	}
-	if b.whiteCanCastleKingside() {
+	if b.WhiteCanCastleKingside() {
 		hash ^= castleRightsZobristC[0]
 	}
-	if b.whiteCanCastleQueenside() {
+	if b.WhiteCanCastleQueenside() {
 		hash ^= castleRightsZobristC[1]
 	}
-	if b.blackCanCastleKingside() {
+	if b.BlackCanCastleKingside() {
 		hash ^= castleRightsZobristC[2]
 	}
-	if b.blackCanCastleQueenside() {
+	if b.BlackCanCastleQueenside() {
 		hash ^= castleRightsZobristC[3]
 	}
 	hash ^= uint64(b.enpassant)
 	for i := uint8(0); i < 64; i++ {
-		whitePiece, _ := determinePieceType(&(b.White), uint64(1)<<i)
-		blackPiece, _ := determinePieceType(&(b.Black), uint64(1)<<i)
+		whitePiece, _ := DeterminePieceType(&(b.White), uint64(1)<<i)
+		blackPiece, _ := DeterminePieceType(&(b.Black), uint64(1)<<i)
 		if whitePiece != Nothing {
 			hash ^= pieceSquareZobristC[whitePiece-1][i]
 		}
@@ -251,8 +251,7 @@ func (b *Board) ToFen() string {
 	for i := 63; i >= 0; i-- {
 		// Loop file A to H, within ranks 8 to 1
 		currIdx := (i/8)*8 + (7 - (i % 8))
-		var currMask uint64
-		currMask = 1 << uint64(currIdx)
+		currMask := uint64(1) << uint64(currIdx)
 
 		toprint := ""
 		if b.White.Pawns&currMask != 0 {
@@ -307,19 +306,19 @@ func (b *Board) ToFen() string {
 	}
 	position += " "
 	castleCount := 0
-	if b.whiteCanCastleKingside() {
+	if b.WhiteCanCastleKingside() {
 		position += "K"
 		castleCount++
 	}
-	if b.whiteCanCastleQueenside() {
+	if b.WhiteCanCastleQueenside() {
 		position += "Q"
 		castleCount++
 	}
-	if b.blackCanCastleKingside() {
+	if b.BlackCanCastleKingside() {
 		position += "k"
 		castleCount++
 	}
-	if b.blackCanCastleQueenside() {
+	if b.BlackCanCastleQueenside() {
 		position += "q"
 		castleCount++
 	}
@@ -424,9 +423,8 @@ func ParseFen(fen string) Board {
 	}
 	b.hash = recomputeBoardHash(&b)
 
-	b.history = make([]History, 1, 32)
-	b.history[0].hashCurrent = b.hash
-	b.irreversibleIdx = 0
+	b.History = make([]History, 1, 32)
+	b.History[0].hashCurrent = b.hash
 	b.termination = TerminationNone
 	return b
 }

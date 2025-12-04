@@ -375,9 +375,9 @@ func TestOrthoPins(t *testing.T) {
 func TestCountAttacks(t *testing.T) {
 	b := ParseFen("3B4/8/1k4Rq/P1pP1P2/8/2p5/3K3r/1n2b3 w - c6 0 0")
 	b2 := ParseFen("3B4/8/1k4Rq/P1pP1P2/8/2p5/3K3r/1n2b3 b - - 0 0")
-	numAttacks, blockerDestinations := b.countAttacks(
+	numAttacks, blockerDestinations := b.CountAttacks(
 		true, algebraicToIndexFatal("d2"), 1000) // on white king
-	numAttacks2, blockerDestinations2 := b2.countAttacks(
+	numAttacks2, blockerDestinations2 := b2.CountAttacks(
 		false, algebraicToIndexFatal("b6"), 1000)
 	if numAttacks != 5 || numAttacks2 != 3 ||
 		blockerDestinations != 0x80402014F012 || blockerDestinations2 != 0x8047C0100000000 {

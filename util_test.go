@@ -70,16 +70,16 @@ func TestParseFen(t *testing.T) {
 	if b.enpassant != 20 {
 		t.Error("Error parsing FEN")
 	}
-	if !b.whiteCanCastleKingside() {
+	if !b.WhiteCanCastleKingside() {
 		t.Error("Error parsing FEN")
 	}
-	if b.whiteCanCastleQueenside() {
+	if b.WhiteCanCastleQueenside() {
 		t.Error("Error parsing FEN")
 	}
-	if b.blackCanCastleKingside() {
+	if b.BlackCanCastleKingside() {
 		t.Error("Error parsing FEN")
 	}
-	if b.blackCanCastleQueenside() {
+	if b.BlackCanCastleQueenside() {
 		t.Error("Error parsing FEN")
 	}
 	if b.White.Kings != 1<<4 {

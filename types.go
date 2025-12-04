@@ -30,10 +30,9 @@ type Board struct {
 	Black         Bitboards
 	hash          uint64
 
-	// Added
-	history         []History
-	termination     Termination
-	irreversibleIdx int
+	// Contains main line of the game, with additional
+	History     []History
+	termination Termination
 }
 
 type Termination uint16
@@ -79,16 +78,14 @@ type History struct {
 	hashCurrent uint64
 
 	// fields captured by original closure, many are probably redundant
-	resetHalfmoveClockFrom                                                   int
-	oldRookLoc, newRookLoc                                                   uint8
-	flippedKsCastle, flippedQsCastle, flippedOppKsCastle, flippedOppQsCastle bool
-	capturedBitboard                                                         *uint64
-	actuallyPerformedEpCapture                                               bool
-	m                                                                        Move
-	oldEpCaptureSquare                                                       uint8
+	resetHalfmoveClockFrom                                                   int     // required
+	oldRookLoc, newRookLoc                                                   uint8   // not req
+	flippedKsCastle, flippedQsCastle, flippedOppKsCastle, flippedOppQsCastle bool    // not req
+	capturedBitboard                                                         *uint64 // required but may be converted to uint8 square
+	Move                                                                     Move    // required
+	oldEpCaptureSquare                                                       uint8   // not req
 	castleStatus                                                             int
-	capturedPieceType, pieceType, promotedToPieceType                        Piece
-	destTypeBitboard, pieceTypeBitboard                                      *uint64
+	capturedPieceType                                                        Piece // required
 }
 
 // Create a new board in the starting position.
@@ -152,8 +149,8 @@ func (b *Board) IsTerminated(moveCount int) bool {
 func (b *Board) IsRepetition(nTimes int) bool {
 	count := 0
 	h := b.Hash()
-	for i := len(b.history) - 1; i >= b.irreversibleIdx && count < 3; i -= 2 {
-		if b.history[i].hashCurrent == h {
+	for i := len(b.History) - 1; i >= 0 && count < 3; i -= 2 {
+		if b.History[i].hashCurrent == h {
 			count++
 		}
 	}
@@ -219,8 +216,8 @@ func (b *Board) IsInsufficientMaterial() bool {
 
 // Returns a deep copy of the board, including its history.
 func (b Board) Clone() *Board {
-	history := make([]History, len(b.history))
-	copy(history, b.history)
+	history := make([]History, len(b.History))
+	copy(history, b.History)
 	return &Board{
 		Wtomove:       b.Wtomove,
 		enpassant:     b.enpassant,
@@ -232,9 +229,8 @@ func (b Board) Clone() *Board {
 		hash:          b.hash,
 
 		// Added
-		history:         history,
-		termination:     b.termination,
-		irreversibleIdx: b.irreversibleIdx,
+		History:     history,
+		termination: b.termination,
 	}
 }
 
@@ -247,44 +243,44 @@ func (b Board) Clone() *Board {
 // castling is actually possible.
 
 // Castling helper functions for all 16 possible scenarios
-func (b *Board) whiteCanCastleQueenside() bool {
+func (b *Board) WhiteCanCastleQueenside() bool {
 	return b.castlerights&1 == 1
 }
-func (b *Board) whiteCanCastleKingside() bool {
+func (b *Board) WhiteCanCastleKingside() bool {
 	return (b.castlerights&0x2)>>1 == 1
 }
-func (b *Board) blackCanCastleQueenside() bool {
+func (b *Board) BlackCanCastleQueenside() bool {
 	return (b.castlerights&0x4)>>2 == 1
 }
-func (b *Board) blackCanCastleKingside() bool {
+func (b *Board) BlackCanCastleKingside() bool {
 	return (b.castlerights&0x8)>>3 == 1
 }
-func (b *Board) canCastleQueenside() bool {
+func (b *Board) CanCastleQueenside() bool {
 	if b.Wtomove {
-		return b.whiteCanCastleQueenside()
+		return b.WhiteCanCastleQueenside()
 	} else {
-		return b.blackCanCastleQueenside()
+		return b.BlackCanCastleQueenside()
 	}
 }
-func (b *Board) canCastleKingside() bool {
+func (b *Board) CanCastleKingside() bool {
 	if b.Wtomove {
-		return b.whiteCanCastleKingside()
+		return b.WhiteCanCastleKingside()
 	} else {
-		return b.blackCanCastleKingside()
+		return b.BlackCanCastleKingside()
 	}
 }
-func (b *Board) oppCanCastleQueenside() bool {
+func (b *Board) OppCanCastleQueenside() bool {
 	if b.Wtomove {
-		return b.blackCanCastleQueenside()
+		return b.BlackCanCastleQueenside()
 	} else {
-		return b.whiteCanCastleQueenside()
+		return b.WhiteCanCastleQueenside()
 	}
 }
-func (b *Board) oppCanCastleKingside() bool {
+func (b *Board) OppCanCastleKingside() bool {
 	if b.Wtomove {
-		return b.blackCanCastleKingside()
+		return b.BlackCanCastleKingside()
 	} else {
-		return b.whiteCanCastleKingside()
+		return b.WhiteCanCastleKingside()
 	}
 }
 func (b *Board) flipWhiteQueensideCastle() {

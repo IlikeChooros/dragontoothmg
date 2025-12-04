@@ -46,7 +46,7 @@ func (b *Board) Make(m Move) {
 	}
 	fromBitboard := (uint64(1) << m.From())
 	toBitboard := (uint64(1) << m.To())
-	pieceType, pieceTypeBitboard := determinePieceType(ourBitboardPtr, fromBitboard)
+	pieceType, pieceTypeBitboard := DeterminePieceType(ourBitboardPtr, fromBitboard)
 	castleStatus := 0
 
 	var oldRookLoc, newRookLoc uint8
@@ -57,7 +57,6 @@ func (b *Board) Make(m Move) {
 	if IsCapture(m, b) || pieceType == Pawn {
 		resetHalfmoveClockFrom = int(b.Halfmoveclock)
 		b.Halfmoveclock = 0 // reset halfmove clock
-		b.irreversibleIdx = len(b.history) - 1
 	} else {
 		b.Halfmoveclock++
 	}
@@ -75,11 +74,11 @@ func (b *Board) Make(m Move) {
 			newRookLoc = m.To() + 1
 		}
 		// King moves always strip castling rights
-		if b.canCastleKingside() {
+		if b.CanCastleKingside() {
 			b.flipKingsideCastle()
 			flippedKsCastle = true
 		}
-		if b.canCastleQueenside() {
+		if b.CanCastleQueenside() {
 			b.flipQueensideCastle()
 			flippedQsCastle = true
 		}
@@ -87,11 +86,11 @@ func (b *Board) Make(m Move) {
 
 	// Rook moves strip castling rights
 	if pieceType == Rook {
-		if b.canCastleKingside() && (fromBitboard&onlyFile[7] != 0) &&
+		if b.CanCastleKingside() && (fromBitboard&onlyFile[7] != 0) &&
 			fromBitboard&ourStartingRankBb != 0 { // king's rook
 			flippedKsCastle = true
 			b.flipKingsideCastle()
-		} else if b.canCastleQueenside() && (fromBitboard&onlyFile[0] != 0) &&
+		} else if b.CanCastleQueenside() && (fromBitboard&onlyFile[0] != 0) &&
 			fromBitboard&ourStartingRankBb != 0 { // queen's rook
 			flippedQsCastle = true
 			b.flipQueensideCastle()
@@ -112,9 +111,7 @@ func (b *Board) Make(m Move) {
 
 	// Is this an e.p. capture? Strip the opponent pawn and reset the e.p. square
 	oldEpCaptureSquare := b.enpassant
-	var actuallyPerformedEpCapture bool = false
 	if pieceType == Pawn && m.To() == oldEpCaptureSquare && oldEpCaptureSquare != 0 {
-		actuallyPerformedEpCapture = true
 		epOpponentPawnLocation := uint8(int8(oldEpCaptureSquare) + epDelta)
 		oppBitboardPtr.Pawns &= ^(uint64(1) << epOpponentPawnLocation)
 		oppBitboardPtr.All &= ^(uint64(1) << epOpponentPawnLocation)
@@ -150,7 +147,7 @@ func (b *Board) Make(m Move) {
 	}
 
 	// Apply the move
-	capturedPieceType, capturedBitboard := determinePieceType(oppBitboardPtr, toBitboard)
+	capturedPieceType, capturedBitboard := DeterminePieceType(oppBitboardPtr, toBitboard)
 	ourBitboardPtr.All &= ^fromBitboard // remove at "from"
 	ourBitboardPtr.All |= toBitboard    // add at "to"
 	*pieceTypeBitboard &= ^fromBitboard // remove at "from"
@@ -165,10 +162,10 @@ func (b *Board) Make(m Move) {
 
 	// If a rook was captured, it strips castling rights
 	if capturedPieceType == Rook {
-		if m.To()%8 == 7 && toBitboard&oppStartingRankBb != 0 && b.oppCanCastleKingside() { // captured king rook
+		if m.To()%8 == 7 && toBitboard&oppStartingRankBb != 0 && b.OppCanCastleKingside() { // captured king rook
 			b.flipOppKingsideCastle()
 			flippedOppKsCastle = true
-		} else if m.To()%8 == 0 && toBitboard&oppStartingRankBb != 0 && b.oppCanCastleQueenside() { // queen rooks
+		} else if m.To()%8 == 0 && toBitboard&oppStartingRankBb != 0 && b.OppCanCastleQueenside() { // queen rooks
 			b.flipOppQueensideCastle()
 			flippedOppQsCastle = true
 		}
@@ -185,39 +182,32 @@ func (b *Board) Make(m Move) {
 	// but it makes the code simpler to read and write
 	// (and uses negligible memory)
 	h := History{}
-	h.resetHalfmoveClockFrom = resetHalfmoveClockFrom
-	h.actuallyPerformedEpCapture = actuallyPerformedEpCapture
 	h.capturedBitboard = capturedBitboard
 	h.capturedPieceType = capturedPieceType
 	h.castleStatus = castleStatus
-	h.destTypeBitboard = destTypeBitboard
 	h.flippedKsCastle = flippedKsCastle
 	h.flippedQsCastle = flippedQsCastle
 	h.flippedOppKsCastle = flippedOppKsCastle
 	h.flippedOppQsCastle = flippedOppQsCastle
-	h.m = m
+	h.Move = m
 	h.newRookLoc = newRookLoc
 	h.oldEpCaptureSquare = oldEpCaptureSquare
 	h.oldRookLoc = oldRookLoc
-	h.pieceType = pieceType
-	h.pieceTypeBitboard = pieceTypeBitboard
-	h.promotedToPieceType = promotedToPieceType
 	h.resetHalfmoveClockFrom = resetHalfmoveClockFrom
 	h.hashBefore = hashBefore
 	h.hashCurrent = b.hash
 
-	b.history = append(b.history, h)
+	b.History = append(b.History, h)
 }
 
 // Undoes the last move. If there is no move to undo, this function does nothing.
 // It may be called multiple times in succession to undo multiple moves.
 func (b *Board) Undo() {
-	if len(b.history) <= 1 {
+	if len(b.History) <= 1 {
 		return
 	}
 	b.termination = TerminationNone
-	u := &b.history[len(b.history)-1]
-
+	u := &b.History[len(b.History)-1]
 	// Configure data about which pieces move
 	var ourBitboardPtr, oppBitboardPtr *Bitboards
 	var epDelta int8 // add this to the e.p. square to find the captured pawn
@@ -242,14 +232,41 @@ func (b *Board) Undo() {
 		b.Halfmoveclock = uint8(u.resetHalfmoveClockFrom)
 	}
 
-	fromBitboard := uint64(1) << u.m.From()
-	toBitboard := uint64(1) << u.m.To()
+	fromBitboard := uint64(1) << u.Move.From()
+	toBitboard := uint64(1) << u.Move.To()
+
+	// Get the pice type that moved
+	pieceType, pieceTypeBitboard := DeterminePieceType(ourBitboardPtr, toBitboard)
+
+	// Is this a promotion?
+	var destTypeBitboard *uint64
+	switch u.Move.Promote() {
+	case Queen:
+		destTypeBitboard = &(ourBitboardPtr.Queens)
+		pieceTypeBitboard = &(ourBitboardPtr.Pawns)
+		// promotedToPieceType = Queen
+	case Knight:
+		destTypeBitboard = &(ourBitboardPtr.Knights)
+		pieceTypeBitboard = &(ourBitboardPtr.Pawns)
+		// promotedToPieceType = Knight
+	case Rook:
+		destTypeBitboard = &(ourBitboardPtr.Rooks)
+		pieceTypeBitboard = &(ourBitboardPtr.Pawns)
+		// promotedToPieceType = Rook
+	case Bishop:
+		destTypeBitboard = &(ourBitboardPtr.Bishops)
+		pieceTypeBitboard = &(ourBitboardPtr.Pawns)
+		// promotedToPieceType = Bishop
+	default:
+		destTypeBitboard = pieceTypeBitboard
+		// promotedToPieceType = pieceType
+	}
 
 	// Unapply move
-	ourBitboardPtr.All &= ^toBitboard    // remove at "to"
-	ourBitboardPtr.All |= fromBitboard   // add at "from"
-	*u.destTypeBitboard &= ^toBitboard   // remove at "to"
-	*u.pieceTypeBitboard |= fromBitboard // add at "from"
+	ourBitboardPtr.All &= ^toBitboard  // remove at "to"
+	ourBitboardPtr.All |= fromBitboard // add at "from"
+	*destTypeBitboard &= ^toBitboard   // remove at "to"
+	*pieceTypeBitboard |= fromBitboard // add at "from"
 	// Restore captured piece (excluding e.p.)
 	if u.capturedPieceType != Nothing { // doesn't consider e.p. captures
 		*u.capturedBitboard |= toBitboard
@@ -266,7 +283,7 @@ func (b *Board) Undo() {
 
 	// Unapply en-passant square change, and capture if necessary
 	b.enpassant = u.oldEpCaptureSquare
-	if u.actuallyPerformedEpCapture {
+	if pieceType == Pawn && u.oldEpCaptureSquare != 0 && u.Move.To() == u.oldEpCaptureSquare {
 		epOpponentPawnLocation := uint8(int8(u.oldEpCaptureSquare) + epDelta)
 		oppBitboardPtr.Pawns |= (uint64(1) << epOpponentPawnLocation)
 		oppBitboardPtr.All |= (uint64(1) << epOpponentPawnLocation)
@@ -294,7 +311,7 @@ func (b *Board) Undo() {
 
 	// Reset the hash and reslice the history
 	b.hash = u.hashBefore
-	b.history = b.history[:len(b.history)-1]
+	b.History = b.History[:len(b.History)-1]
 }
 
 // Make null move - pass the turn to the opponent side, must be undone with UndoNullMove(),
@@ -311,16 +328,16 @@ func (b *Board) MakeNullMove() {
 	b.Wtomove = !b.Wtomove
 	b.hash ^= whiteToMoveZobristC
 
-	b.history = append(b.history,
+	b.History = append(b.History,
 		History{hashBefore: hashBefore, oldEpCaptureSquare: oldEpCaptureSquare})
 }
 
 func (b *Board) UndoNullMove() {
-	if len(b.history) == 0 {
+	if len(b.History) == 0 {
 		return
 	}
 
-	u := &b.history[len(b.history)-1]
+	u := &b.History[len(b.History)-1]
 
 	// Restore previous state
 	b.Wtomove = !b.Wtomove
@@ -328,10 +345,10 @@ func (b *Board) UndoNullMove() {
 	b.hash = u.hashBefore
 
 	// Slice the history
-	b.history = b.history[:len(b.history)-1]
+	b.History = b.History[:len(b.History)-1]
 }
 
-func determinePieceType(ourBitboardPtr *Bitboards, squareMask uint64) (Piece, *uint64) {
+func DeterminePieceType(ourBitboardPtr *Bitboards, squareMask uint64) (Piece, *uint64) {
 	var pieceType Piece = Nothing
 	pieceTypeBitboard := &(ourBitboardPtr.All)
 	if squareMask&ourBitboardPtr.Pawns != 0 {

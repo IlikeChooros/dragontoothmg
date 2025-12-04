@@ -56,7 +56,7 @@ func (b *Board) GenerateMovesForPiece(piece Piece) []Move {
 	}
 
 	// If in check, only king moves are possible
-	kingAttackers, blockDest := b.countAttacks(b.Wtomove, kingLocation, 2)
+	kingAttackers, blockDest := b.CountAttacks(b.Wtomove, kingLocation, 2)
 	if kingAttackers >= 2 {
 		if piece == Nothing || piece == King {
 			b.kingPushes(&moves, ourPiecesPtr)
@@ -470,7 +470,7 @@ func (b *Board) kingPushes(moveList *[]Move, ptrToOurBitboards *Bitboards) {
 func (b *Board) kingMoves(moveList *[]Move) {
 	// castling
 	var ourKingLocation uint8
-	var canCastleQueenside, canCastleKingside bool
+	var CanCastleQueenside, CanCastleKingside bool
 	var ptrToOurBitboards *Bitboards
 	allPieces := b.White.All | b.Black.All
 	if b.Wtomove {
@@ -480,27 +480,27 @@ func (b *Board) kingMoves(moveList *[]Move) {
 		kingsideClear := allPieces&((1<<5)|(1<<6)) == 0
 		queensideClear := allPieces&((1<<3)|(1<<2)|(1<<1)) == 0
 		// skip the king square, since this won't be called while in check
-		canCastleQueenside = b.whiteCanCastleQueenside() &&
-			queensideClear && !b.anyUnderDirectAttack(true, 2, 3)
-		canCastleKingside = b.whiteCanCastleKingside() &&
-			kingsideClear && !b.anyUnderDirectAttack(true, 5, 6)
+		CanCastleQueenside = b.WhiteCanCastleQueenside() &&
+			queensideClear && !b.AnyUnderDirectAttack(true, 2, 3)
+		CanCastleKingside = b.WhiteCanCastleKingside() &&
+			kingsideClear && !b.AnyUnderDirectAttack(true, 5, 6)
 	} else {
 		ourKingLocation = uint8(bits.TrailingZeros64(b.Black.Kings))
 		ptrToOurBitboards = &(b.Black)
 		kingsideClear := allPieces&((1<<61)|(1<<62)) == 0
 		queensideClear := allPieces&((1<<57)|(1<<58)|(1<<59)) == 0
 		// skip the king square, since this won't be called while in check
-		canCastleQueenside = b.blackCanCastleQueenside() &&
-			queensideClear && !b.anyUnderDirectAttack(false, 58, 59)
-		canCastleKingside = b.blackCanCastleKingside() &&
-			kingsideClear && !b.anyUnderDirectAttack(false, 61, 62)
+		CanCastleQueenside = b.BlackCanCastleQueenside() &&
+			queensideClear && !b.AnyUnderDirectAttack(false, 58, 59)
+		CanCastleKingside = b.BlackCanCastleKingside() &&
+			kingsideClear && !b.AnyUnderDirectAttack(false, 61, 62)
 	}
-	if canCastleKingside {
+	if CanCastleKingside {
 		var move Move
 		move.Setfrom(Square(ourKingLocation)).Setto(Square(ourKingLocation + 2))
 		*moveList = append(*moveList, move)
 	}
-	if canCastleQueenside {
+	if CanCastleQueenside {
 		var move Move
 		move.Setfrom(Square(ourKingLocation)).Setto(Square(ourKingLocation - 2))
 		*moveList = append(*moveList, move)
@@ -587,7 +587,7 @@ func genMovesFromTargets(moveList *[]Move, origin Square, targets uint64) {
 
 // Variadic function that returns whether any of the specified squares is being attacked
 // by the opponent. Potentially expensive.
-func (b *Board) anyUnderDirectAttack(byBlack bool, squares ...uint8) bool {
+func (b *Board) AnyUnderDirectAttack(byBlack bool, squares ...uint8) bool {
 	for _, v := range squares {
 		if b.UnderDirectAttack(byBlack, v) {
 			return true
@@ -604,13 +604,13 @@ func (b *Board) OurKingInCheck() bool {
 	} else {
 		origin = uint8(bits.TrailingZeros64(b.Black.Kings))
 	}
-	count, _ := b.countAttacks(byBlack, origin, 1)
+	count, _ := b.CountAttacks(byBlack, origin, 1)
 	return count >= 1
 }
 
 // Determine if a square is under attack. Potentially expensive.
 func (b *Board) UnderDirectAttack(byBlack bool, origin uint8) bool {
-	count, _ := b.countAttacks(byBlack, origin, 1)
+	count, _ := b.CountAttacks(byBlack, origin, 1)
 	return count >= 1
 }
 
@@ -619,14 +619,14 @@ func (b *Board) UnderDirectAttack(byBlack bool, origin uint8) bool {
 // The found number might exceed the abortion threshold, since attacks are grouped.
 // Also returns the mask of attackers.
 func (b *Board) UnderDirectAttackMulti(byBlack bool, origin uint8, abortEarly int) (int, uint64) {
-	return b.countAttacks(byBlack, origin, abortEarly)
+	return b.CountAttacks(byBlack, origin, abortEarly)
 }
 
 // Compute whether an individual square is under direct attack. Potentially expensive.
 // Can be asked to abort early, when a certain number of attacks are found.
 // The found number might exceed the abortion threshold, since attacks are grouped.
 // Also returns the mask of attackers.
-func (b *Board) countAttacks(byBlack bool, origin uint8, abortEarly int) (int, uint64) {
+func (b *Board) CountAttacks(byBlack bool, origin uint8, abortEarly int) (int, uint64) {
 	numAttacks := 0
 	var blockerDestinations uint64 = 0
 	allPieces := b.White.All | b.Black.All
