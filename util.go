@@ -167,6 +167,166 @@ func algebraicToIndexFatal(alg string) uint8 {
 	return res
 }
 
+// Accepts a short algebraic notation chess move, and converts it to a Move
+// Ignores check/mate indicators (+/#), but supports captures (x) and promotions (=Q).
+// Example inputs: "e4", "Nf3", "Raxd1", "e8=Q+", "O-O", "O-O-O", "Qxe5#"
+func ShortAlgebraicToMove(salg string, board *Board) (Move, error) {
+
+	// Move format:
+	// [Type][from_file][from_rank][x][to_square][=Promotion][+#]
+
+	const (
+		CastlingKingside  = "O-O"
+		CastlingQueenside = "O-O-O"
+		Capture           = 'x'
+		NullMove          = Move(0)
+		Promotion         = '='
+		NotSet            = uint8(127)
+	)
+
+	var ourBB *Bitboards = &board.White
+	if !board.Wtomove {
+		ourBB = &board.Black
+	}
+
+	if salg == CastlingKingside || salg == CastlingQueenside {
+		// Castling, simply check king moves (optimized with 'kingCastlingMoves')
+		moves := make([]Move, 0, 2)
+		board.kingCastlingMoves(&moves)
+
+		for _, move := range moves {
+			if t, _ := DeterminePieceType(ourBB, uint64(1)<<move.From()); t == King {
+				fromFile := Square(move.From()).File()
+				toFile := Square(move.To()).File()
+				if salg == CastlingKingside && toFile > fromFile {
+					return move, nil
+				}
+				if salg == CastlingQueenside && toFile < fromFile {
+					return move, nil
+				}
+			}
+		}
+
+		return NullMove, fmt.Errorf("castling move not found: %s", salg)
+	}
+
+	// First letter is piece type (if absent, it's a pawn)
+	pieceType := Piece(Pawn)
+	switch salg[0] {
+	case 'N':
+		pieceType = Knight
+	case 'B':
+		pieceType = Bishop
+	case 'R':
+		pieceType = Rook
+	case 'Q':
+		pieceType = Queen
+	case 'K':
+		pieceType = King
+	}
+
+	from_file := NotSet
+	from_rank := NotSet
+	to_square := NotSet
+	is_capture := false
+	promotion := Piece(Nothing)
+	len := len(salg)
+
+	// Parse the move string
+	i := 0
+	if pieceType != Pawn {
+		i++
+	}
+
+	// Check for the first square
+	if i < len && salg[i] >= 'a' && salg[i] <= 'h' {
+		from_file = uint8(salg[i] - 'a')
+		i++
+	}
+	if i < len && salg[i] >= '1' && salg[i] <= '8' {
+		from_rank = uint8(salg[i] - '1')
+		i++
+	}
+
+	// Check for 'x' (capture)
+	if i < len && salg[i] == 'x' {
+		is_capture = true
+		i++
+	}
+
+	// Now the to_square (if present)
+	if i+1 < len && salg[i] >= 'a' && salg[i] <= 'h' && salg[i+1] >= '1' && salg[i+1] <= '8' {
+		v, err := AlgebraicToIndex(salg[i : i+2])
+		if err != nil {
+			return NullMove, fmt.Errorf("invalid to_square in move: %s", salg)
+		}
+		to_square = v
+		i += 2
+	} else {
+		// If there's no 'to_square' the 'from_square' is actually the 'to_square'
+		if from_file != NotSet && from_rank != NotSet {
+			to_square = from_rank*8 + from_file
+			from_file = NotSet
+			from_rank = NotSet
+		} else {
+			return NullMove, fmt.Errorf("incomplete to_square in move: %s", salg)
+		}
+	}
+
+	// Check for promotion
+	if i < len && salg[i] == Promotion {
+		i++
+		if i < len {
+			switch salg[i] {
+			case 'N':
+				promotion = Knight
+			case 'B':
+				promotion = Bishop
+			case 'R':
+				promotion = Rook
+			case 'Q':
+				promotion = Queen
+			default:
+				return NullMove, fmt.Errorf("unknown promotion piece in move: %s", salg)
+			}
+			i++
+		} else {
+			return NullMove, fmt.Errorf("missing promotion piece in move: %s", salg)
+		}
+	}
+
+	// Now find the move in the legal moves
+	for _, move := range board.GenerateLegalMoves() {
+		if move.To() == uint8(to_square) {
+
+			// Check capture
+			if IsCapture(move, board) != is_capture {
+				continue
+			}
+
+			t, _ := DeterminePieceType(ourBB, uint64(1)<<move.From())
+			if t == pieceType {
+				// Check from_file and from_rank if specified
+				if from_file != NotSet && Square(move.From()).File() != from_file {
+					continue
+				}
+				if from_rank != NotSet && Square(move.From()).Rank() != from_rank {
+					continue
+				}
+				// Check promotion
+				if promotion != Nothing {
+					if move.Promote() != promotion {
+						continue
+					}
+				}
+				return move, nil
+			}
+		}
+	}
+
+	return NullMove, fmt.Errorf("move not found: %s", salg)
+}
+
 // Accepts an algebraic notation chess square, and converts it to a square ID
 // as used by Dragontooth (in both the board and move types).
 func AlgebraicToIndex(alg string) (uint8, error) {

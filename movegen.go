@@ -468,14 +468,27 @@ func (b *Board) kingPushes(moveList *[]Move, ptrToOurBitboards *Bitboards) {
 // Not thread-safe, since the king is removed from the board to compute
 // king-danger squares.
 func (b *Board) kingMoves(moveList *[]Move) {
+	var ptrToOurBitboards *Bitboards
+	if b.Wtomove {
+		ptrToOurBitboards = &(b.White)
+	} else {
+		ptrToOurBitboards = &(b.Black)
+	}
+
+	// castling
+	b.kingCastlingMoves(moveList)
+	// non-castling
+	b.kingPushes(moveList, ptrToOurBitboards)
+}
+
+// Generate only castling moves, if available.
+func (b *Board) kingCastlingMoves(moveList *[]Move) {
 	// castling
 	var ourKingLocation uint8
 	var CanCastleQueenside, CanCastleKingside bool
-	var ptrToOurBitboards *Bitboards
 	allPieces := b.White.All | b.Black.All
 	if b.Wtomove {
 		ourKingLocation = uint8(bits.TrailingZeros64(b.White.Kings))
-		ptrToOurBitboards = &(b.White)
 		// To castle, we must have rights and a clear path
 		kingsideClear := allPieces&((1<<5)|(1<<6)) == 0
 		queensideClear := allPieces&((1<<3)|(1<<2)|(1<<1)) == 0
@@ -486,7 +499,6 @@ func (b *Board) kingMoves(moveList *[]Move) {
 			kingsideClear && !b.AnyUnderDirectAttack(true, 5, 6)
 	} else {
 		ourKingLocation = uint8(bits.TrailingZeros64(b.Black.Kings))
-		ptrToOurBitboards = &(b.Black)
 		kingsideClear := allPieces&((1<<61)|(1<<62)) == 0
 		queensideClear := allPieces&((1<<57)|(1<<58)|(1<<59)) == 0
 		// skip the king square, since this won't be called while in check
@@ -505,9 +517,6 @@ func (b *Board) kingMoves(moveList *[]Move) {
 		move.Setfrom(Square(ourKingLocation)).Setto(Square(ourKingLocation - 2))
 		*moveList = append(*moveList, move)
 	}
-
-	// non-castling
-	b.kingPushes(moveList, ptrToOurBitboards)
 }
 
 // Generate all rook moves using magic bitboards.

@@ -23,6 +23,8 @@ New Features in this Fork
 *   Introduced `Termination` type to represent various termination states (Checkmate, Stalemate, etc.).
 *   Set `kDefaultMoveListLength` to 35, reflecting the average branch factor in chess.
 *   Made various previously unexported types and functions exported for better usability, for example `WhiteCanCastleQueenside`, `BlackCanCastleKingside`, etc.
+*  Added `ShortAlgebraicToMove(salg string, board *Board) (Move, error)` function to parse short algebraic notation moves (e.g., "e4", "Nf3", "O-O").
+*   Added `FromFen(fen string) (*Board, bool)` function, supporting 'extended' FEN string with `moves <move1> <move2> ...` at the end to reconstruct move history (moves are in long algebraic form). (e.g `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 moves e2e4 e7e5`)
 
 Repo summary
 ============

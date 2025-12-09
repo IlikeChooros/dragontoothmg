@@ -116,3 +116,75 @@ func TestToFen(t *testing.T) {
 		}
 	}
 }
+
+func TestShortAlgebaricToMovePlayGame(t *testing.T) {
+	moves := []string{
+		"e2e4", "d7d5", "g1f3", "g8f6", "f1b5", "c8d7",
+		"e1g1", "e7e6", "e4d5", "e6d5", "f1e1", "f8e7",
+		"d2d4", "d7b5", "b1c3", "b8c6", "c1g5", "d8d6",
+		"d1d2", "e8c8",
+	}
+
+	tests := []string{
+		"e4", "d5", "Nf3", "Nf6", "Bb5", "Bd7",
+		"O-O", "e6", "exd5", "exd5", "Re1+", "Be7",
+		"d4", "Bxb5", "Nc3", "Nc6", "Bg5", "Qd6",
+		"Qd2", "O-O-O",
+	}
+
+	board := NewBoard()
+	for i, moveStr := range tests {
+		expected, err := ParseMove(moves[i])
+		if err != nil {
+			t.Fatalf("Failed to parse expected move %s: %v", moves[i], err)
+		}
+
+		actual, err := ShortAlgebraicToMove(moveStr, board)
+		if err != nil {
+			t.Fatalf("ShortAlgebraicToMove failed for move %s: %v", moveStr, err)
+		}
+
+		if actual != expected {
+			t.Errorf("ShortAlgebraicToMove(%s) = %s; want %s", moveStr, actual.String(), expected.String())
+		}
+		board.Make(actual)
+	}
+}
+
+func TestEdgeShortAlgebraicToMove(t *testing.T) {
+
+	// Will add more meaningful tests later
+	fens := []string{
+		"r3k2r/pppq1ppp/2n2n2/2bp4/4P3/2N2N2/PPPQ1PPP/R3K2R w KQkq - 0 10",
+		"r3k2r/pppq1ppp/2n2n2/2bp4/4P3/2N2N2/PPPQ1PPP/R3K2R b KQkq - 0 10",
+	}
+
+	moves := []string{
+		"O-O", "O-O-O",
+	}
+
+	expected := []string{
+		"e1g1", "e8c8",
+	}
+
+	for i, fen := range fens {
+		board, ok := FromFen(fen)
+		if !ok {
+			t.Fatalf("Failed to parse FEN: %s", fen)
+		}
+
+		expected, err := ParseMove(expected[i])
+		if err != nil {
+			t.Fatalf("Failed to parse expected move %s: %v", moves[i], err)
+		}
+
+		actual, err := ShortAlgebraicToMove(moves[i], board)
+		if err != nil {
+			t.Fatalf("ShortAlgebraicToMove failed for move %s: %v", moves[i], err)
+		}
+
+		if actual != expected {
+			t.Errorf("ShortAlgebraicToMove(%s) = %s; want %s", moves[i], actual.String(), expected.String())
+		}
+	}
+}
