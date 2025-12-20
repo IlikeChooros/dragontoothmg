@@ -115,6 +115,12 @@ You can find the documentation [here](https://godoc.org/github.com/IlikeChooros/
 Here is a simple example invocation:
 
 ```go
+
+// Import the package (yes, this is the repo)
+import "github.com/IlikeChooros/dragontoothmg"
+
+// ...
+
 // Read a position from a FEN string
 board := dragontoothmg.ParseFen("1Q2rk2/2p2p2/1n4b1/N7/2B1Pp1q/2B4P/1QPP4/4K2R b K e3 4 30")
 // Generate all legal moves
